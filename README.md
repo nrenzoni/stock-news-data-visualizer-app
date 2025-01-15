@@ -10,19 +10,25 @@ The app visualizes structured data extracted from stock news articles, including
 * article publication frequency
 * stock price data
 
+---
+
+![Stock News Data Analytic App Architecture](https://github.com/user-attachments/assets/f5e5f765-5468-434f-aed5-25b40b47e116)
+
+---
+
 I've had the idea for this project for a while. Many thanks to the Airbyte / Motherduck competition which motivated me
 to actually do it!
 
 Throughout this project, effort went into the following:
 
-* Extracting structured data from unstructured text using LLM technology
+* Extracting structured data from unstructured text using LLM technology; enforcing LLM output to match desired schema.
 * Retrieving stock price data for relevant stock symbols mentioned in the data set news articles
 * Generating embeddings for article summaries for similarity analysis
-* Setting up a self-hosted MongoDb cluster as a data source for Airbyte
-* Configuring Airbyte to sync data from MongoDb to Motherduck
-* Building a streamlit app to visualize the extracted data
+* Setting up a self-hosted MongoDb cluster as a data source for Airbyte (see technical challenge note at the bottom for more details)
+* Configuring Airbyte to sync data from MongoDb to MotherDuck
+* Building a streamlit app to visualize the extracted data, utilyzing the data set in MotherDuck
 
-Motherduck connection string for the database:
+MotherDuck connection string for the database:
 `ATTACH 'md:_share/stock_news_sentiment_and_similarity_db/f6d399bb-1f34-4ee7-90aa-c76da12ea3ed'`
 
 Ancillary repos built for this project:
@@ -30,7 +36,7 @@ Ancillary repos built for this project:
 * [stock-news-llm-scripts](https://github.com/nrenzoni/stock-news-llm-scripts) - a set of scripts for:
     * ETL between MongoDb, DuckDb, and ClickhouseDb - prior to this project, I had news article data sitting on MongoDb
       and ClickhouseDb. These scripts contain functionality to transfer the data to a fresh MongoDb which served as a '
-      mock' OLTP database for Airbyte to sync to Motherduck. For this project, I ran the scripts manually. However in
+      mock' OLTP database for Airbyte to sync to MotherDuck. For this project, I ran the scripts manually. However in
       production, the scripts can be scheduled using Airflow or similar.
     * requesting textual embedding from the `sentence-embedding-server` (below)
     * OHLCV downloader for stock symbols mentioned in the news articles
@@ -38,24 +44,30 @@ Ancillary repos built for this project:
 * [sentence-embedding-server](https://github.com/nrenzoni/sentence-embedding-server) - a server to calculate sentence
   embeddings, used for similarity analysis of the article summaries
 
-MongoDb as OLTP
 ---
 
-* News articles (unstructured text)
-* extracted structure - …
-* 256 dim embedding for article summary
-* Price and trade volume data on stock symbols mentioned the articles
+Major tech used:
 
-Airbyte
----
 
-* Easily Syncs data from MongoDb to Motherduck
-* Ideally scheduled to sync at the end of every day
+1) MongoDb as OLTP
 
-Motherduck
----
+* stored news articles (both structured and unstructured raw text)
+* 256 dimensional embedding for each article summary
+* Price and trade volume data on stocks mentioned in articles
+* If I were to productionalize this project, I would replace MongoDb with Postgres or a similar Db engine.
 
-* data hosting provider of DuckDb + user-friendly web UI, efficient for data analysis and exploration
+2) Airbyte
+
+* Once the intial setup hurtle is overcome, it works smoothly
+* Used to sync data from between MongoDb (OLTP Db) to MotherDuck (OLAP Db)
+* Syncs were triggered manually; in production environemnt, would be setup to sync at the end of every day
+
+3) MotherDuck
+
+* OLAP Db hosted version of DuckDb
+* The user-friendly web UI was efficient and helpful for running ad-hoc queries exploring and analyzing the data set.
+* Convenient share function
+* Greatly appreciated the DuckDb Python [Relational API](https://duckdb.org/docs/api/python/relational_api); it made it easy to separate out the SQL CTEs to python variables which also allowed elegant shared use of CTEs between different queries.
 
 **Screenshots**:
 
