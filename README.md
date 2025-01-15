@@ -57,12 +57,29 @@ Motherduck
 
 * data hosting provider of DuckDb + user-friendly web UI, efficient for data analysis and exploration
 
----
-\* technical challenges:
-setting up a self-hosted MongoDb cluster as a data source for Airbyte
-___
+**Screenshots**:
 
-The biggest challenge I faced doing this project was setting up a self-hosted MongoDb cluster compatible with Airbyte.
+MongoDb extracted structed features from web-scraped news articles:
+
+![Screenshot 2025-01-14 170929](https://github.com/user-attachments/assets/95e73a39-a0a4-4c37-b9f4-524dd7b126e3)
+
+Airbyte setup of MongoDb source (auto detects source schema, and handles changes):
+
+![Screenshot 2025-01-14 170718](https://github.com/user-attachments/assets/fd42b9c4-9db1-48c2-bed5-7afd662c545d)
+
+Airbyte sync progress screen:
+
+![Screenshot 2025-01-14 170820](https://github.com/user-attachments/assets/ae478f10-7e9e-41f2-b2c9-106aea4b43aa)
+
+MotherDuck web UI 
+
+![Screenshot 2025-01-14 171051](https://github.com/user-attachments/assets/c900f66d-785f-47cc-b6c1-393cef5a0b25)
+
+---
+
+technical challenges:
+
+\* The biggest challenge I faced doing this project was setting up a self-hosted MongoDb cluster compatible with Airbyte.
 It took me 15 days to get it working properly! The multistep process and experimentation included:
 
 - enabling TLS on MongoDb - I had to generate a Let’s Encrypt signed certificate using the CertBot tool, and DuckDNS for
