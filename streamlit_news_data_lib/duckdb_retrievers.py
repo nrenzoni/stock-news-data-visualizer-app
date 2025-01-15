@@ -526,4 +526,4 @@ def get_most_similar_with_returns(_md_conn: duckdb.DuckDBPyConnection):
 
 
 def test_md_conn(md_conn: duckdb.DuckDBPyConnection):
-    return md_conn.sql("SHOW DATABASES").fetchdf()
+    return md_conn.sql("SHOW DATABASES").pl()

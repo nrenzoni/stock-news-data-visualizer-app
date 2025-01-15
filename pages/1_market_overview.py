@@ -16,8 +16,6 @@ get_avg_sentiment_per_day = st.cache_data(get_avg_sentiment_per_day)
 get_sentiment_day_return_pairs = st.cache_data(get_sentiment_day_return_pairs)
 get_most_similar_with_returns = st.cache_data(get_most_similar_with_returns)
 
-get_ohlc_returns = st.cache_data(get_position_returns_relation)
-
 md_conn = get_motherduck_conn()
 
 st.title('Market Overview')
@@ -25,12 +23,6 @@ st.title('Market Overview')
 min_article_date, max_article_date = get_min_max_article_dates(md_conn)
 
 st.write(f"Data range: [{min_article_date}, {max_article_date}]")
-
-# start_date, end_date = st.slider(
-#     'Date range selector',
-#     value=[min_article_date,
-#            max_article_date],
-# )
 
 publish_count_per_day = get_publish_count_per_day(md_conn)
 st.plotly_chart(
@@ -121,6 +113,3 @@ most_similar_with_returns_plot.update_xaxes(range=[-1, 1])
 most_similar_with_returns_plot.update_yaxes(range=[-1, 1])
 most_similar_with_returns_plot.update_layout(title_x=0.25)
 st.plotly_chart(most_similar_with_returns_plot)
-
-# ohlc_returns = get_ohlc_returns(md_conn)
-# st.write(ohlc_returns)
