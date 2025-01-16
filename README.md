@@ -16,8 +16,8 @@ The app visualizes structured data extracted from stock news articles, including
 
 ---
 
-I've had the idea for this project for a while. Many thanks to the Airbyte / Motherduck competition which motivated me
-to actually do it!
+I've had the idea to extract structured data from stock news articles and to analyze it. Many thanks to the Airbyte / Motherduck competition for motivating me
+to actually get to it!
 
 Throughout this project, effort went into the following:
 
@@ -69,6 +69,15 @@ Major tech used:
 * Convenient share function
 * Greatly appreciated the DuckDb Python [Relational API](https://duckdb.org/docs/api/python/relational_api); it made it easy to separate out the SQL CTEs to python variables which also allowed elegant shared use of CTEs between different queries.
 
+---
+
+steps to run locally:
+
+1) run `uv venv`
+2) run `streamlit run streamlit_app.py`
+
+---
+
 **Screenshots**:
 
 MongoDb extracted structed features from web-scraped news articles:
@@ -83,7 +92,7 @@ Airbyte sync progress screen:
 
 ![Screenshot 2025-01-14 170820](https://github.com/user-attachments/assets/ae478f10-7e9e-41f2-b2c9-106aea4b43aa)
 
-MotherDuck web UI 
+MotherDuck Web UI
 
 ![Screenshot 2025-01-14 171051](https://github.com/user-attachments/assets/c900f66d-785f-47cc-b6c1-393cef5a0b25)
 
@@ -91,7 +100,8 @@ MotherDuck web UI
 
 technical challenges:
 
-\* The biggest challenge I faced doing this project was setting up a self-hosted MongoDb cluster compatible with Airbyte.
+\* The biggest challenge I faced doing this project was setting up a self-hosted MongoDb cluster compatible with
+Airbyte.
 It took me 15 days to get it working properly! The multistep process and experimentation included:
 
 - enabling TLS on MongoDb - I had to generate a Let’s Encrypt signed certificate using the CertBot tool, and DuckDNS for

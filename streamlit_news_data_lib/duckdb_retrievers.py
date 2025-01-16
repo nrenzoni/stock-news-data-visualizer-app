@@ -1,8 +1,8 @@
+import enum
 from os import environ
 
 import duckdb
 import datetime as dt
-import polars as pl
 
 
 def get_motherduck_conn():
@@ -151,35 +151,76 @@ def get_avg_sentiment_per_day(_md_conn: duckdb.DuckDBPyConnection):
 
 
 def get_stocks_large_sentiment_change(_md_conn: duckdb.DuckDBPyConnection):
-    pass
-
-
-def get_stocks_with_at_least_avg_5_articles_per_month(_md_conn: duckdb.DuckDBPyConnection):
-    pass
-
-
-def get_all_symbols(_md_conn: duckdb.DuckDBPyConnection):
-    pass
-
-
-def get_list_of_symbols(
-        _md_conn: duckdb.DuckDBPyConnection,
-        filter_stocks_large_sentiment_change: bool,
-        filter_stocks_with_at_least_avg_5_articles_per_month: bool,
-        _get_stocks_large_sentiment_change_callback,
-        _get_stocks_with_at_least_avg_5_articles_per_month_callback
-
-):
-    stocks_large_sentiment_change = (
-        _get_stocks_large_sentiment_change_callback(_md_conn)
-    )
-    stocks_with_at_least_avg_5_articles_per_month = (
-        _get_stocks_with_at_least_avg_5_articles_per_month_callback(
-            _md_conn
-        )
+    """
+    :param _md_conn:
+    :return: dataframe of stock symbols with large sentiment variation.
+    the variation metric is scaled by the symbols number of articles as a proportion of the max number of articles for any symbol
+    """
+    sentiment_with_symbol_relation = _md_conn.sql(
+        """
+        SELECT 
+          url,
+          publish_time_NY,
+          (sentiments->'$[*].sentiment_score')::FLOAT[] AS sentiment_score,
+          (sentiments->>'$[*].sentiment_confidence')::FLOAT[] AS sentiment_conf,
+          (financial_event_with_symbols->>'$[*].symbol.symbol')
+            .list_distinct()[1]
+            .upper() 
+              AS symbol
+          FROM llm_feature_extract_date_ny"""
     )
 
-    symbols_with_exchange_relation = _md_conn.sql(
+    sentiment_weighted = _md_conn.sql(
+        f"""
+            SELECT 
+              url,
+              date_trunc('day', publish_time_NY) AS date_period,
+              symbol,
+              (list_zip(sentiment_score, sentiment_conf)::STRUCT(v1 FLOAT, v2 FLOAT)[])
+                .list_transform(x -> x.v1 * x.v2)[1]
+                  AS weighted_sentiment
+            FROM sentiment_with_symbol_relation
+            WHERE
+              symbol IN (SELECT symbol FROM clean_symbols)
+              AND weighted_sentiment NOT NULL"""
+    )
+
+    sentiment_std_dev_relation = _md_conn.sql(
+        """
+        SELECT 
+          symbol,
+          stddev_pop(weighted_sentiment) AS sentiment_std_dev,
+          COUNT(*) AS symbol_count
+        FROM sentiment_weighted
+        GROUP BY symbol"""
+    )
+
+    max_symbol_count = _md_conn.sql(
+        """
+        SELECT
+          max(symbol_count) AS max_symbol_count
+        FROM sentiment_std_dev_relation"""
+    )
+
+    sentiment_std_dev_scaled_by_count_relation = _md_conn.sql(
+        """
+        SELECT
+          symbol,
+          symbol_count,
+          sentiment_std_dev * (symbol_count / max_symbol_count) AS sentiment_std_dev_scaled
+        FROM sentiment_std_dev_relation, max_symbol_count
+        ORDER BY sentiment_std_dev_scaled DESC"""
+    )
+
+    return (
+        sentiment_std_dev_scaled_by_count_relation
+        .select('symbol')
+        .pl()
+    )
+
+
+def get_symbol_exchanges_unnested_relation(_md_conn: duckdb.DuckDBPyConnection):
+    return _md_conn.sql(
         """
         SELECT 
           (financial_event_with_symbols->>'$[*].symbol.symbol')
@@ -191,21 +232,50 @@ def get_list_of_symbols(
               .unnest()
               .upper()
               .trim()
-            AS exchange
+            AS exchange,
+          *  
         FROM llm_feature_extract"""
     )
 
+
+class SymbolSortOption(enum.Enum):
+    SENTIMENT_STD_DEV = enum.auto()
+    NUMBER_OF_ARTICLES = enum.auto()
+    SYMBOL = enum.auto()
+
+
+def get_all_symbols_sorted_alphabetically(_md_conn: duckdb.DuckDBPyConnection, sort_by: str):
+    symbols_with_exchange_relation = get_symbol_exchanges_unnested_relation(_md_conn)
+
     query = f"""
-    SELECT 
-      DISTINCT symbol
-    FROM symbols_with_exchange_relation
-    WHERE 
-      symbol IN (SELECT symbol FROM clean_symbols)
-      AND exchange IN ('NASDAQ', 'NYSE')
-    ORDER BY symbol
-    """
+        SELECT 
+          symbol
+        FROM symbols_with_exchange_relation
+        WHERE 
+          symbol IN (SELECT symbol FROM clean_symbols)
+          AND exchange IN ('NASDAQ', 'NYSE')
+        GROUP BY symbol
+        ORDER BY {sort_by}
+        """
 
     return _md_conn.sql(query).pl()[:, 0].to_list()
+
+
+def get_list_of_symbols(
+        _md_conn: duckdb.DuckDBPyConnection,
+        sort_option_str: str
+):
+    sort_option = SymbolSortOption[sort_option_str.upper()]
+
+    match sort_option:
+        case SymbolSortOption.SENTIMENT_STD_DEV:
+            return get_stocks_large_sentiment_change(_md_conn)
+        case SymbolSortOption.SYMBOL:
+            return get_all_symbols_sorted_alphabetically(_md_conn, 'symbol')
+        case SymbolSortOption.NUMBER_OF_ARTICLES:
+            return get_all_symbols_sorted_alphabetically(_md_conn, 'count(*) DESC')
+        case _:
+            raise ValueError(f"Invalid sort option: {sort_option_str}")
 
 
 def get_publish_freq_per_period_for_symbol(_md_conn: duckdb.DuckDBPyConnection, period, symbol: str):

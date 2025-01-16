@@ -100,7 +100,7 @@ most_similar_with_returns_plot = px.scatter(
     most_similar_with_returns_filtered,
     x='position_return_first_article',
     y='position_return_second_article',
-    title='stock returns for paired most similar articles<br>'
+    title='1 day stock % return for paired most similar articles<br>'
           '<span style="font-size: small;">(same stock, using 256 dim embeddings)</span>',
     color='similarity',
     hover_data={
