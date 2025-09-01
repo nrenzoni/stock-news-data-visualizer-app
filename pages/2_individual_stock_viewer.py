@@ -2,6 +2,8 @@ import streamlit as st
 from streamlit_news_data_lib.duckdb_retrievers import *
 from streamlit_news_data_lib.duckdb_retrievers import SymbolSortOption
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # wrap functions with caching
 get_motherduck_conn = st.cache_resource(get_motherduck_conn)
@@ -28,7 +30,7 @@ list_of_symbols = get_list_of_symbols(
 )
 stock_symbol = st.selectbox('Choose a stock symbol:', list_of_symbols)
 
-period_selection = st.selectbox('Period', ['day', 'week', 'month'])
+period_selection = st.selectbox('Period', [d.name.lower() for d in DuckDatePartSpecifier])
 symbol_freq_per_period = get_publish_freq_per_period_for_symbol(md_conn, period_selection, stock_symbol)
 symbol_freq_per_period_plot = px.bar(
     symbol_freq_per_period,
@@ -42,10 +44,28 @@ symbol_avg_sentiment_per_period = get_avg_sentiment_per_period_for_symbol(
     md_conn,
     period_selection,
     stock_symbol)
+
+fig = make_subplots(
+    rows=3, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.1,
+    subplot_titles=(
+        f'{stock_symbol} avg sentiment per {period_selection}',
+        'OHLC'
+    )
+)
+
+fig.add_trace(go.Scatter(
+    x=symbol_avg_sentiment_per_period['timestamp'],
+    y=symbol_avg_sentiment_per_period['avg_sentiment'],
+    mode='markers',
+    name='avg sentiment',
+), row=1, col=1)
+
 symbol_avg_sentiment_per_period_plot = px.scatter(
     symbol_avg_sentiment_per_period,
-    x='date_period',
-    y='avg_val',
+    x='timestamp',
+    y='avg_sentiment',
     title=f'{stock_symbol} avg sentiment per {period_selection}',
     color='avg_method',
 )
@@ -70,3 +90,40 @@ symbol_avg_sentiment_per_period_plot.update_layout(
     yaxis=dict(range=[-100, 100])
 )
 st.plotly_chart(symbol_avg_sentiment_per_period_plot)
+
+min_timestamp = symbol_avg_sentiment_per_period['timestamp'].min()
+max_timestamp = symbol_avg_sentiment_per_period['timestamp'].max()
+
+symbol_ohlc = get_ohlcv_data(
+    md_conn,
+    stock_symbol,
+    period_selection,
+    min_timestamp,
+    max_timestamp
+)
+
+st.write(symbol_ohlc)
+
+fig.add_trace(go.Candlestick(
+    x=symbol_ohlc['timestamp'],
+    open=symbol_ohlc['open'],
+    high=symbol_ohlc['high'],
+    low=symbol_ohlc['low'],
+    close=symbol_ohlc['close'],
+    showlegend=False
+), row=2, col=1)
+
+fig.update_layout(
+    xaxis2_rangeslider_visible=False,
+    width=900
+)
+
+fig.add_trace(go.Bar(
+    x=symbol_ohlc['timestamp'],
+    y=symbol_ohlc['volume'],
+    showlegend=False
+), row=3, col=1)
+
+st.plotly_chart(
+    fig,
+    use_container_width=False)

@@ -5,6 +5,12 @@ import duckdb
 import datetime as dt
 
 
+class DuckDatePartSpecifier(enum.Enum):
+    DAY = enum.auto()
+    WEEK = enum.auto()
+    MONTH = enum.auto()
+
+
 def get_motherduck_conn():
     motherduck_token = environ['motherduck_token']
     return duckdb.connect(f'md:my_db?motherduck_token={motherduck_token}')
@@ -340,7 +346,7 @@ def get_avg_sentiment_per_period_for_symbol(_md_conn: duckdb.DuckDBPyConnection,
     avgs_by_period_relation = _md_conn.sql(
         """
         SELECT 
-          date_period,
+          date_period as timestamp,
           median(weighted_sentiment) as median,
           mean(weighted_sentiment) as mean
         FROM filtered_by_symbol_relation
@@ -353,7 +359,7 @@ def get_avg_sentiment_per_period_for_symbol(_md_conn: duckdb.DuckDBPyConnection,
     ON median, mean
     INTO 
         NAME avg_method
-        VALUE avg_val
+        VALUE avg_sentiment
     """
 
     return _md_conn.sql(query).pl()
@@ -593,6 +599,46 @@ def get_most_similar_with_returns(_md_conn: duckdb.DuckDBPyConnection):
         'position_return_second_article',
         'similarity'
     ).pl()
+
+
+def get_ohlcv_data(
+        _md_conn: duckdb.DuckDBPyConnection,
+        symbol: str,
+        period: str,
+        start_date: dt.date,
+        end_date: dt.date
+):
+    ohlcv_data = _md_conn.sql(
+        f"""
+        SELECT 
+          timestamp_ny AS timestamp,
+          open,
+          high,
+          low,
+          close,
+          volume
+        FROM minute_ohlc_ny_tz
+        WHERE 
+          symbol = '{symbol}'
+          AND timestamp_ny >= '{start_date.isoformat()}'
+          AND timestamp_ny < '{end_date.isoformat()}'"""
+    )
+
+    grouped_by_period = _md_conn.sql(
+        f"""
+        SELECT 
+            date_trunc('{period}', timestamp) AS timestamp,
+            first(open) AS open,
+            max(high) AS high,
+            min(low) AS low,
+            last(close) AS close,
+            sum(volume) AS volume
+        FROM ohlcv_data
+        GROUP BY date_trunc('{period}', timestamp)
+        ORDER BY timestamp"""
+    )
+
+    return grouped_by_period.pl()
 
 
 def test_md_conn(md_conn: duckdb.DuckDBPyConnection):
